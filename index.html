@@ -2,166 +2,37 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>Google Calendar Widget</title>
-
-<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>내 캘린더</title>
 <style>
-body{
-font-family:Segoe UI;
-margin:0;
-padding:10px;
-background:white;
-}
-
-#calendar{
-max-width:900px;
-margin:auto;
-}
-
-button{
-padding:8px 14px;
-border:none;
-border-radius:6px;
-background:#4285F4;
-color:white;
-cursor:pointer;
-}
-
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: #ffffff;
+    overflow: hidden;
+  }
+  iframe {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
 </style>
 </head>
-
 <body>
-
-<button onclick="handleAuth()">Google 로그인</button>
-
-<div id="calendar"></div>
-
-<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
-<script src="https://apis.google.com/js/api.js"></script>
-
-<script>
-
-const CONFIG = {
-
-apiKey: "YOUR_GOOGLE_API_KEY",
-
-clientId: "YOUR_GOOGLE_CLIENT_ID",
-
-discoveryDocs:["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"],
-
-scope:"https://www.googleapis.com/auth/calendar"
-
-};
-
-let calendar;
-
-function initCalendar(){
-
-calendar = new FullCalendar.Calendar(
-document.getElementById("calendar"),
-{
-initialView:"dayGridMonth",
-locale:"ko",
-
-events: loadEvents,
-
-dateClick: addEvent
-
-});
-
-calendar.render();
-
-}
-
-async function loadEvents(fetchInfo, successCallback){
-
-const response =
-await gapi.client.calendar.events.list({
-
-calendarId:"primary",
-
-timeMin: fetchInfo.startStr,
-
-timeMax: fetchInfo.endStr,
-
-singleEvents:true,
-
-orderBy:"startTime"
-
-});
-
-const events = response.result.items.map(e=>({
-
-id:e.id,
-
-title:e.summary,
-
-start:e.start.dateTime || e.start.date,
-
-end:e.end?.dateTime || e.end?.date
-
-}));
-
-successCallback(events);
-
-}
-
-async function addEvent(info){
-
-const title = prompt("일정 제목");
-
-if(!title) return;
-
-const event = {
-
-summary:title,
-
-start:{date:info.dateStr},
-
-end:{date:info.dateStr}
-
-};
-
-await gapi.client.calendar.events.insert({
-
-calendarId:"primary",
-
-resource:event
-
-});
-
-calendar.refetchEvents();
-
-}
-
-function handleAuth(){
-
-gapi.auth2.getAuthInstance().signIn()
-
-.then(()=>{
-
-calendar.refetchEvents();
-
-});
-
-}
-
-function initClient(){
-
-gapi.client.init(CONFIG)
-
-.then(()=>{
-
-initCalendar();
-
-});
-
-}
-
-gapi.load("client:auth2",initClient);
-
-</script>
-
+<!--
+  노션 임베드용 구글 캘린더 (읽기 전용, API 키 없음).
+  공개(public) 상태인 구글 캘린더를 구글 캘린더 기본 임베드로 그대로 보여 줍니다.
+  캘린더 ID는 평문 메일 주소가 소스에 남지 않도록 base64로 담았습니다.
+  더 가벼운 FullCalendar UI + 공휴일 표시 버전은 fullcalendar.html 참고 (구글 API 키 필요).
+-->
+<iframe
+  src="https://calendar.google.com/calendar/embed?src=bXRzd29ya3MyMDI0QGdtYWlsLmNvbQ&ctz=Asia%2FSeoul&mode=MONTH&showTitle=0&showNav=1&showDate=1&showPrint=0&showTabs=0&showCalendars=0&showTz=0&wkst=1&bgcolor=%23ffffff"
+  title="내 캘린더"
+  frameborder="0"
+  scrolling="no"
+  loading="lazy"
+  referrerpolicy="no-referrer-when-downgrade"></iframe>
 </body>
 </html>

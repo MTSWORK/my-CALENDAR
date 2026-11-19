@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>내 캘린더 (FullCalendar)</title>
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
+<style>
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    padding: 8px;
+    box-sizing: border-box;
+    background: transparent;
+    font-family: 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+    color: #202124;
+  }
+  #banner {
+    display: none;
+    margin: 0 0 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: #fce8e6;
+    color: #a50e0e;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+  #banner.show { display: block; }
+  #calendar { max-width: 100%; }
+  .fc { font-size: 13px; }
+  .fc .fc-toolbar-title { font-size: 15px; font-weight: 700; }
+  .fc .fc-button {
+    padding: 3px 8px;
+    font-size: 12px;
+    background: #4285F4;
+    border-color: #4285F4;
+    box-shadow: none;
+  }
+  .fc .fc-button:hover { background: #3367d6; border-color: #3367d6; }
+  .fc .fc-button:disabled { opacity: .45; }
+  .fc .fc-daygrid-event { border-radius: 5px; padding: 1px 3px; font-size: 11px; }
+  .fc .fc-col-header-cell-cushion { font-size: 11px; color: #5f6368; text-decoration: none; }
+  .fc .fc-daygrid-day-number { font-size: 11px; color: #5f6368; text-decoration: none; }
+  .fc .fc-day-today { background: #e8f0fe !important; }
+  .fc-theme-standard td, .fc-theme-standard th { border-color: #e8eaed; }
+</style>
+</head>
+<body>
+
+<div id="banner"></div>
+<div id="calendar"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/locales-all.global.min.js"></script>
+<script>
+/*
+  노션 임베드용 읽기 전용 구글 캘린더 (FullCalendar 버전).
+  - 구글 API 키는 이 사이트(mtswork.github.io) 리퍼러로 제한하고, Google Calendar API 만 허용합니다.
+  - 달력은 공개(public) 상태여야 하고, 공개 일정을 읽어서 보여 줍니다. 로그인 창은 뜨지 않습니다.
+  - API_KEY 가 비어 있으면 안내 문구만 표시됩니다. (키 없이 쓰려면 index.html 사용)
+*/
+const API_KEY = 'YOUR_GOOGLE_API_KEY';
+
+// 캘린더 ID는 평문 메일 주소가 소스에 그대로 남지 않도록 base64로 담아 둡니다.
+function calId(encoded) {
+  try { return decodeURIComponent(escape(atob(encoded))); } catch (e) { return ''; }
+}
+
+const CALENDARS = [
+  { id: calId('bXRzd29ya3MyMDI0QGdtYWlsLmNvbQ=='), color: '#4285F4', name: '내 일정' },
+  { id: 'ko.south_korea#holiday@group.v.calendar.google.com', color: '#EA4335', name: '공휴일' }
+];
+
+const banner = document.getElementById('banner');
+function showBanner(msg) {
+  banner.textContent = msg;
+  banner.classList.add('show');
+}
+function hideBanner() {
+  banner.classList.remove('show');
+}
+
+async function fetchCalendar(cal, timeMin, timeMax) {
+  if (!cal.id) return [];
+  const url = new URL('https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(cal.id) + '/events');
+  url.searchParams.set('key', API_KEY);
+  url.searchParams.set('timeMin', timeMin);
+  url.searchParams.set('timeMax', timeMax);
+  url.searchParams.set('singleEvents', 'true');
+  url.searchParams.set('orderBy', 'startTime');
+  url.searchParams.set('maxResults', '2500');
+
+  const res = await fetch(url.toString());
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const reason = (body.error && body.error.message) || ('HTTP ' + res.status);
+    throw new Error(cal.name + ': ' + reason);
+  }
+  return (body.items || []).map(function (ev) {
+    return {
+      id: ev.id,
+      title: ev.summary || '(제목 없음)',
+      start: ev.start.dateTime || ev.start.date,
+      end: ev.end ? (ev.end.dateTime || ev.end.date) : undefined,
+      allDay: !!(ev.start && ev.start.date),
+      backgroundColor: cal.color,
+      borderColor: cal.color,
+      textColor: '#ffffff'
+    };
+  });
+}
+
+async function loadEvents(info, successCallback, failureCallback) {
+  if (!API_KEY || API_KEY === 'YOUR_GOOGLE_API_KEY') {
+    showBanner('구글 API 키가 설정되지 않았습니다. (README 참고)');
+    successCallback([]);
+    return;
+  }
+  try {
+    const lists = await Promise.all(CALENDARS.map(function (cal) {
+      return fetchCalendar(cal, info.startStr, info.endStr);
+    }));
+    hideBanner();
+    successCallback(lists.flat());
+  } catch (err) {
+    showBanner('일정을 불러오지 못했습니다. (' + err.message + ')');
+    failureCallback(err);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+    initialView: 'dayGridMonth',
+    locale: 'ko',
+    height: '100%',
+    headerToolbar: { left: 'prev,next today', center: 'title', right: '' },
+    buttonText: { today: '오늘' },
+    dayMaxEvents: 3,
+    fixedWeekCount: false,
+    displayEventTime: false,
+    events: loadEvents,
+    eventDidMount: function (arg) {
+      arg.el.title = arg.event.title;
+    }
+  });
+  calendar.render();
+});
+</script>
+</body>
+</html>
